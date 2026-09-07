@@ -16,7 +16,6 @@ import (
 	"time"
 
 	baseauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth"
-	antigravityauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/antigravity"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
@@ -214,7 +213,7 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 		// Skip network project discovery on every auth-file read when we already
 		// failed or recently probed — otherwise onboardUser + auth WRITE storms
 		// the watcher and hot-reloads the whole client set.
-		if projectID == "" && !antigravityauth.ShouldSkipProjectIDProbe(metadata, time.Now(), 0) {
+		if projectID == "" && !ShouldSkipAntigravityProjectIDProbe(metadata, time.Now(), 0) {
 			accessToken := extractAccessToken(metadata)
 			// For gemini type, the stored access_token is likely expired (~1h lifetime).
 			// Refresh it using the long-lived refresh_token before querying.
@@ -229,14 +228,14 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 				fetchedProjectID, errFetch := FetchAntigravityProjectID(context.Background(), accessToken, http.DefaultClient)
 				changed := false
 				if errFetch != nil {
-					antigravityauth.MarkProjectIDProbeFailure(metadata, errFetch, time.Now())
+					MarkAntigravityProjectIDProbeFailure(metadata, errFetch, time.Now())
 					changed = true
 				} else if trimmed := strings.TrimSpace(fetchedProjectID); trimmed != "" {
 					metadata["project_id"] = trimmed
-					antigravityauth.ClearProjectIDProbeMarkers(metadata)
+					ClearAntigravityProjectIDProbeMarkers(metadata)
 					changed = true
 				} else {
-					antigravityauth.MarkProjectIDProbeFailure(metadata, antigravityauth.ErrNoProjectID, time.Now())
+					MarkAntigravityProjectIDProbeFailure(metadata, ErrAntigravityNoProjectID, time.Now())
 					changed = true
 				}
 				if changed {
