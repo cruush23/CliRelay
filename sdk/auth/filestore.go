@@ -16,6 +16,7 @@ import (
 	"time"
 
 	baseauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth"
+	antigravityauth "github.com/router-for-me/CLIProxyAPI/v6/internal/auth/antigravity"
 	"github.com/router-for-me/CLIProxyAPI/v6/internal/util"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v6/sdk/cliproxy/auth"
 )
@@ -210,7 +211,10 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 		if pid, ok := metadata["project_id"].(string); ok {
 			projectID = strings.TrimSpace(pid)
 		}
-		if projectID == "" {
+		// Skip network project discovery on every auth-file read when we already
+		// failed or recently probed — otherwise onboardUser + auth WRITE storms
+		// the watcher and hot-reloads the whole client set.
+		if projectID == "" && !antigravityauth.ShouldSkipProjectIDProbe(metadata, time.Now(), 0) {
 			accessToken := extractAccessToken(metadata)
 			// For gemini type, the stored access_token is likely expired (~1h lifetime).
 			// Refresh it using the long-lived refresh_token before querying.
@@ -223,12 +227,25 @@ func (s *FileTokenStore) readAuthFile(path, baseDir string) (*cliproxyauth.Auth,
 			}
 			if accessToken != "" {
 				fetchedProjectID, errFetch := FetchAntigravityProjectID(context.Background(), accessToken, http.DefaultClient)
-				if errFetch == nil && strings.TrimSpace(fetchedProjectID) != "" {
-					metadata["project_id"] = strings.TrimSpace(fetchedProjectID)
+				changed := false
+				if errFetch != nil {
+					antigravityauth.MarkProjectIDProbeFailure(metadata, errFetch, time.Now())
+					changed = true
+				} else if trimmed := strings.TrimSpace(fetchedProjectID); trimmed != "" {
+					metadata["project_id"] = trimmed
+					antigravityauth.ClearProjectIDProbeMarkers(metadata)
+					changed = true
+				} else {
+					antigravityauth.MarkProjectIDProbeFailure(metadata, antigravityauth.ErrNoProjectID, time.Now())
+					changed = true
+				}
+				if changed {
 					if raw, errMarshal := json.Marshal(metadata); errMarshal == nil {
-						if file, errOpen := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o600); errOpen == nil {
-							_, _ = file.Write(raw)
-							_ = file.Close()
+						if existing, errRead := os.ReadFile(path); errRead != nil || !jsonEqual(existing, raw) {
+							if file, errOpen := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o600); errOpen == nil {
+								_, _ = file.Write(raw)
+								_ = file.Close()
+							}
 						}
 					}
 				}
