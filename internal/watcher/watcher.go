@@ -35,6 +35,9 @@ type Watcher struct {
 	clientsMutex      sync.RWMutex
 	configReloadMu    sync.Mutex
 	configReloadTimer *time.Timer
+	authReloadMu      sync.Mutex
+	authReloadTimer   *time.Timer
+	pendingAuthPaths  map[string]string
 	reloadCallback    func(*config.Config)
 	watcher           *fsnotify.Watcher
 	lastAuthHashes    map[string]string
@@ -121,6 +124,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 func (w *Watcher) Stop() error {
 	w.stopDispatch()
 	w.stopConfigReloadTimer()
+	w.stopAuthReloadTimer()
 	return w.watcher.Close()
 }
 
