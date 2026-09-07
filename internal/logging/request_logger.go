@@ -161,6 +161,7 @@ func (l *FileRequestLogger) LogStreamingRequest(url, method string, headers map[
 	responseBodyPath := responseBodyFile.Name()
 
 	writer := &FileStreamingLogWriter{
+		logger:           l,
 		logFilePath:      filePath,
 		url:              url,
 		method:           method,

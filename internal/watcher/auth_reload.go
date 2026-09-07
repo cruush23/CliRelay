@@ -28,7 +28,8 @@ func (w *Watcher) scheduleAuthFileUpdate(path string) {
 	}
 	w.pendingAuthPaths[normalized] = path
 	if w.authReloadTimer != nil {
-		w.authReloadTimer.Stop()
+		// Keep the first event deadline so writes from other accounts cannot starve reloads.
+		return
 	}
 	w.authReloadTimer = time.AfterFunc(authReloadDebounce, func() {
 		w.flushPendingAuthUpdates()
