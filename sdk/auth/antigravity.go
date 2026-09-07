@@ -279,7 +279,7 @@ var ErrAntigravityNoProjectID = antigravity.ErrNoProjectID
 
 // ShouldSkipAntigravityProjectIDProbe reports whether metadata says we must not
 // hit loadCodeAssist/onboardUser again for project discovery (same-package wrapper
- // so filestore can circuit-break without a new sdk→internal/antigravity import).
+// so filestore can circuit-break without a new sdk→internal/antigravity import).
 func ShouldSkipAntigravityProjectIDProbe(metadata map[string]any, now time.Time, backoff time.Duration) bool {
 	return antigravity.ShouldSkipProjectIDProbe(metadata, now, backoff)
 }
