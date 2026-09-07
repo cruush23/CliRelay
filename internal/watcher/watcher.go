@@ -33,6 +33,7 @@ type Watcher struct {
 	authDir           string
 	config            *config.Config
 	clientsMutex      sync.RWMutex
+	authRefreshMu     sync.Mutex
 	configReloadMu    sync.Mutex
 	configReloadTimer *time.Timer
 	authReloadMu      sync.Mutex
